@@ -11,38 +11,25 @@ async function saveLeads(leads) {
   await chrome.storage.local.set({ leads });
 }
 
-async function updateLeadStatus(phone, status) {
-  const leads = await getLeads();
-  const lead = leads.find(l => l.phone === phone);
-  if (lead) {
-    lead.status = status;
-    lead.lastContacted = new Date().toISOString();
-    await saveLeads(leads);
-  }
-}
-
-// ─── Templates ────────────────────────────────────────────────────
+// ─── Templates ───────────────────────────────────────────────────
 
 async function getTemplates() {
   const data = await chrome.storage.local.get('templates');
   return data.templates || [
     {
-      id: 'default',
-      name: 'Default - Jasa Foto Interior',
-      text: 'Halo {nama}, saya Ahmad Asri dari Ahmad Asri Photography. Saya lihat {bisnis} di {lokasi} dan tertarik untuk membantu meningkatkan kualitas foto interior. Foto profesional bisa meningkatkan booking hingga 40%. Apakah tertarik untuk diskusi lebih lanjut?',
-      variables: ['nama', 'bisnis', 'lokasi']
+      id: 1,
+      name: 'Perkenalan',
+      text: 'Halo {nama}, saya lihat {bisnis} di {lokasi}. Saya fotografer interior yang berpengalaman membantu bisnis seperti {bisnis} menampilkan foto terbaik untuk menarik lebih banyak pelanggan. Apakah tertarik untuk berdiskusi?'
     },
     {
-      id: 'portfolio',
-      name: 'Portfolio Share',
-      text: 'Halo {nama}! Saya fotografer interior profesional di Jogja. Saya sudah membantu banyak {jenis} seperti {bisnis} untuk mendapatkan foto yang menarik minat pelanggan. Mau lihat portofolio saya? Terima kasih!',
-      variables: ['nama', 'jenis', 'bisnis']
+      id: 2,
+      name: 'Promo',
+      text: 'Halo {nama}! Saya Ahmad, fotografer interior di Jogja. Bulan ini ada promo khusus untuk {jenis} seperti {bisnis}. Foto profesional bisa meningkatkan booking hingga 40%. Minat?'
     },
     {
-      id: 'promo',
-      name: 'Promo Spesial',
-      text: 'Halo {nama}! Ada promo spesial untuk {jenis} di {lokasi}: paket foto interior mulai Rp 500rb. Sudah termasuk editing profesional + 20 foto. Berlaku hingga akhir bulan. Minat? Balas pesan ini ya!',
-      variables: ['nama', 'jenis', 'lokasi']
+      id: 3,
+      name: 'Portfolio',
+      text: 'Halo {nama}, saya Ahmad fotografer interior. Ini portfolio saya: [link]. Saya bisa bantu {bisnis} punya foto sekelas ini. Gratis konsultasi, hubungi saya ya!'
     }
   ];
 }
@@ -51,109 +38,9 @@ async function saveTemplates(templates) {
   await chrome.storage.local.set({ templates });
 }
 
-// ─── CSV Parser ──────────────────────────────────────────────────
-
-function parseCSV(csvText) {
-  const lines = csvText.split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-  const leads = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    const values = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (const char of lines[i]) {
-      if (char === '"') { inQuotes = !inQuotes; }
-      else if (char === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
-      else { current += char; }
-    }
-    values.push(current.trim());
-    
-    // Map to lead object
-    const lead = {};
-    headers.forEach((h, idx) => {
-      lead[h] = (values[idx] || '').replace(/"/g, '').trim();
-    });
-    
-    // Normalize fields
-    const phone = lead.phone || lead.telepon || lead.whatsapp || lead['phone/whatsapp'] || '';
-    if (!phone) continue;
-    
-    // Clean phone: remove spaces, dashes, ensure starts with 62 or 08
-    let cleanPhone = phone.replace(/[\s\-()]/g, '');
-    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
-    if (!cleanPhone.startsWith('62') && !cleanPhone.startsWith('+')) cleanPhone = '62' + cleanPhone;
-    cleanPhone = cleanPhone.replace(/^\+/, '');
-    
-    leads.push({
-      id: `lead_${Date.now()}_${i}`,
-      name: lead.name || lead.nama || lead['business name'] || lead['nama bisnis'] || '',
-      phone: cleanPhone,
-      phoneRaw: phone,
-      email: lead.email || '',
-      address: lead.address || lead.alamat || '',
-      website: lead.website || '',
-      mapsUrl: lead['maps url'] || lead['google maps url'] || '',
-      businessType: lead.type || lead.jenis || lead['business type'] || lead['jenis bisnis'] || '',
-      status: 'pending',
-      lastContacted: null,
-      notes: ''
-    });
-  }
-  
-  return leads;
-}
-
-// ─── Message Generator ────────────────────────────────────────────
-
-function generateMessage(template, lead, customVars = {}) {
-  let text = template;
-  
-  // Replace variables
-  const vars = {
-    nama: lead.name || 'Bapak/Ibu',
-    bisnis: lead.name || 'bisnis Anda',
-    lokasi: lead.address || 'lokasi Anda',
-    jenis: lead.businessType || 'bisnis',
-    alamat: lead.address || '',
-    ...customVars
-  };
-  
-  for (const [key, value] of Object.entries(vars)) {
-    text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
-  }
-  
-  return text;
-}
-
 // ─── Message Handler ─────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  
-  if (msg.type === 'IMPORT_CSV') {
-    (async () => {
-      const leads = parseCSV(msg.csv);
-      const existing = await getLeads();
-      
-      // Merge: skip duplicates by phone number
-      const existingPhones = new Set(existing.map(l => l.phone));
-      const newLeads = leads.filter(l => !existingPhones.has(l.phone));
-      
-      const all = [...existing, ...newLeads];
-      await saveLeads(all);
-      
-      sendResponse({ 
-        success: true, 
-        imported: newLeads.length,
-        duplicates: leads.length - newLeads.length,
-        total: all.length
-      });
-    })();
-    return true;
-  }
   
   if (msg.type === 'GET_LEADS') {
     (async () => {
@@ -163,9 +50,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   
-  if (msg.type === 'UPDATE_STATUS') {
+  if (msg.type === 'IMPORT_LEADS') {
     (async () => {
-      await updateLeadStatus(msg.phone, msg.status);
+      await saveLeads(msg.leads);
+      sendResponse({ success: true, count: msg.leads.length });
+    })();
+    return true;
+  }
+  
+  if (msg.type === 'UPDATE_LEAD') {
+    (async () => {
+      const leads = await getLeads();
+      const idx = leads.findIndex(l => l.id === msg.lead.id);
+      if (idx >= 0) leads[idx] = { ...leads[idx], ...msg.lead };
+      await saveLeads(leads);
       sendResponse({ success: true });
     })();
     return true;
@@ -174,7 +72,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'DELETE_LEAD') {
     (async () => {
       const leads = await getLeads();
-      const filtered = leads.filter(l => l.id !== msg.id);
+      const filtered = leads.filter(l => l.id !== msg.leadId);
       await saveLeads(filtered);
       sendResponse({ success: true });
     })();
@@ -205,48 +103,76 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   
-  if (msg.type === 'GENERATE_MESSAGE') {
+  if (msg.type === 'PREVIEW_MESSAGE') {
     (async () => {
       const templates = await getTemplates();
-      const template = templates.find(t => t.id === msg.templateId) || templates[0];
-      const message = generateMessage(template.text, msg.lead, msg.customVars);
+      const template = templates.find(t => t.id === msg.templateId);
+      if (!template) {
+        sendResponse({ success: false, error: 'Template not found' });
+        return;
+      }
+      
+      let message = template.text;
+      message = message.replace(/{nama}/g, msg.lead.name || '');
+      message = message.replace(/{bisnis}/g, msg.lead.businessName || msg.lead.name || '');
+      message = message.replace(/{lokasi}/g, msg.lead.address || '');
+      message = message.replace(/{jenis}/g, msg.lead.businessType || '');
+      message = message.replace(/{telepon}/g, msg.lead.phone || '');
+      
       sendResponse({ success: true, message });
     })();
     return true;
   }
   
   if (msg.type === 'OPEN_WHATSAPP') {
-    // Open wa.me link
-    const phone = msg.phone;
-    const text = encodeURIComponent(msg.text);
-    const url = `https://wa.me/${phone}?text=${text}`;
-    
-    chrome.tabs.create({ url, active: false });
-    sendResponse({ success: true });
-    return true;
-  }
-  
-  if (msg.type === 'EXPORT_CSV') {
     (async () => {
-      const leads = await getLeads();
-      const headers = ['Name', 'Phone', 'Email', 'Address', 'Website', 'Status', 'Last Contacted'];
-      const rows = leads.map(l => [
-        l.name, l.phoneRaw || l.phone, l.email, l.address, l.website, l.status, l.lastContacted || ''
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+      let phone = msg.phone.replace(/[^0-9+]/g, '');
+      if (phone.startsWith('0')) {
+        phone = '62' + phone.substring(1);
+      } else if (!phone.startsWith('62') && !phone.startsWith('+')) {
+        phone = '62' + phone;
+      }
+      phone = phone.replace('+', '');
       
-      const csv = [headers.join(','), ...rows].join('\n');
-      sendResponse({ success: true, csv });
+      const text = encodeURIComponent(msg.message);
+      const url = `https://wa.me/${phone}?text=${text}`;
+      
+      chrome.tabs.create({ url });
+      sendResponse({ success: true, url });
     })();
     return true;
   }
+  
+  if (msg.type === 'EXPORT_LEADS') {
+    (async () => {
+      const leads = await getLeads();
+      const csv = [
+        'name,businessName,phone,address,businessType,status',
+        ...leads.map(l => 
+          `"${(l.name||'').replace(/"/g,'""')}","${(l.businessName||'').replace(/"/g,'""')}","${l.phone||''}","${(l.address||'').replace(/"/g,'""')}","${l.businessType||''}","${l.status||'pending'}"`
+        )
+      ].join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      
+      chrome.downloads.download({
+        url,
+        filename: `leads-export-${new Date().toISOString().split('T')[0]}.csv`,
+        saveAs: true
+      }, () => {
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        sendResponse({ success: true });
+      });
+    })();
+    return true;
+  }
+  
+  return true;
 });
 
 // ─── Open Side Panel ──────────────────────────────────────────────
 
-chrome.action.onClicked.addListener(async (tab) => {
-  await chrome.sidePanel.open({ tabId: tab.id });
-});
-
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
 console.log('[WhatsApp Outreach] Background loaded');
