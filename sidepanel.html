@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #F2F2F7; --card: #FFFFFF; --text: #1D1D1F; --text-muted: #86868B;
+      --primary: #007AFF; --green: #34C759; --orange: #FF9500; --red: #FF3B30;
+      --input-bg: rgba(118, 118, 128, 0.12); --divider: #E5E5EA;
+      --radius: 12px; --radius-lg: 16px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased;
+      font-size: 14px; min-height: 100vh;
+    }
+    
+    .header {
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(20px);
+      padding: 12px 16px; border-bottom: 0.5px solid var(--divider);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .header-title { font-size: 20px; font-weight: 700; }
+    .header-actions { display: flex; gap: 8px; }
+    
+    .tabs {
+      display: flex; background: var(--input-bg); border-radius: 10px; padding: 2px;
+    }
+    .tab {
+      flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 600;
+      color: var(--text-muted); border: none; background: none; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab.active { background: white; color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    
+    .content { padding: 16px; overflow-y: auto; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    
+    /* Buttons */
+    .btn-icon {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      background: var(--input-bg); border: none; border-radius: 10px; cursor: pointer;
+      color: var(--text-muted); transition: all 0.15s;
+    }
+    .btn-icon:hover { background: rgba(118, 118, 128, 0.2); }
+    .btn-icon svg { width: 18px; height: 18px; }
+    
+    .btn-primary {
+      width: 100%; padding: 14px; background: var(--primary); color: white; border: none;
+      border-radius: var(--radius); font-size: 16px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary svg { width: 18px; height: 18px; }
+    
+    .btn-sm {
+      padding: 6px 12px; font-size: 12px; font-weight: 600; border: none; border-radius: 8px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn-outline { background: none; color: var(--primary); border: 1px solid var(--primary); }
+    .btn-green { background: var(--green); color: white; }
+    .btn-orange { background: var(--orange); color: white; }
+    .btn-danger { background: none; color: var(--red); border: 1px solid var(--red); }
+    
+    /* Import Card */
+    .import-card {
+      background: var(--card); border-radius: var(--radius-lg); padding: 24px;
+      text-align: center; border: 1px solid var(--divider); margin-bottom: 16px;
+    }
+    .import-icon {
+      width: 64px; height: 64px; background: rgba(52, 199, 89, 0.1); border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+    }
+    .import-icon svg { width: 32px; height: 32px; color: var(--green); }
+    .import-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .import-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; }
+    
+    /* Stats */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;
+    }
+    .stat-item {
+      background: var(--card); border-radius: 12px; padding: 12px; text-align: center;
+      border: 1px solid var(--divider);
+    }
+    .stat-number { font-size: 24px; font-weight: 700; }
+    .stat-number.green { color: var(--green); }
+    .stat-number.orange { color: var(--orange); }
+    .stat-number.red { color: var(--red); }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    
+    /* Lead List */
+    .lead-list {
+      background: var(--card); border-radius: var(--radius-lg); overflow: hidden;
+      border: 1px solid var(--divider);
+    }
+    .lead-item {
+      display: flex; align-items: center; padding: 12px 16px;
+      border-bottom: 0.5px solid var(--divider); gap: 12px;
+    }
+    .lead-item:last-child { border-bottom: none; }
+    
+    .lead-status-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .lead-status-dot.pending { background: var(--orange); }
+    .lead-status-dot.sent { background: var(--green); }
+    .lead-status-dot.replied { background: var(--primary); }
+    
+    .lead-info { flex: 1; min-width: 0; }
+    .lead-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lead-phone { font-size: 12px; color: var(--text-muted); }
+    .lead-address { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+    
+    .lead-actions { display: flex; gap: 4px; }
+    .lead-btn {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      background: none; border: none; border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    }
+    .lead-btn:hover { background: var(--input-bg); }
+    .lead-btn svg { width: 16px; height: 16px; }
+    .lead-btn.whatsapp { color: var(--green); }
+    .lead-btn.delete { color: var(--red); }
+    
+    /* Template Editor */
+    .template-card {
+      background: var(--card); border-radius: var(--radius-lg); padding: 16px;
+      border: 1px solid var(--divider); margin-bottom: 12px;
+    }
+    .template-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    }
+    .template-name { font-size: 15px; font-weight: 600; }
+    .template-text {
+      width: 100%; min-height: 80px; padding: 12px; background: var(--input-bg);
+      border: 2px solid transparent; border-radius: 10px; font-size: 14px;
+      color: var(--text); outline: none; resize: vertical; font-family: inherit;
+    }
+    .template-text:focus { border-color: rgba(0, 122, 255, 0.3); background: white; }
+    .template-vars {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+    }
+    .template-var {
+      padding: 3px 8px; background: rgba(0, 122, 255, 0.08); color: var(--primary);
+      border-radius: 6px; font-size: 11px; font-weight: 600;
+    }
+    
+    /* Preview Card */
+    .preview-card {
+      background: var(--card); border-radius: var(--radius-lg); padding: 16px;
+      border: 1px solid var(--divider); margin-bottom: 16px; display: none;
+    }
+    .preview-card.visible { display: block; }
+    .preview-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+    .preview-text {
+      font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap;
+      background: #DCF8C6; padding: 12px; border-radius: 12px; border-top-right-radius: 0;
+    }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: var(--text-muted);
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+    
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--text); color: white; padding: 10px 20px; border-radius: 24px;
+      font-size: 14px; font-weight: 500; opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 60; pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    
+    /* Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px); z-index: 50; align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 20px 20px 0 0; padding: 24px 16px;
+      width: 100%; max-height: 80vh; overflow-y: auto;
+    }
+    .modal-handle {
+      width: 36px; height: 5px; background: var(--divider); border-radius: 3px;
+      margin: 0 auto 16px;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+    
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block; font-size: 12px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .form-input, .form-select {
+      width: 100%; padding: 10px 14px; background: var(--input-bg); border: 2px solid transparent;
+      border-radius: 10px; font-size: 14px; color: var(--text); outline: none; font-family: inherit;
+    }
+    .form-input:focus, .form-select:focus { border-color: rgba(0, 122, 255, 0.3); background: white; }
+    
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--divider); border-radius: 2px; }
+  </style>
+</head>
+<body>
+  
+  <div class="header">
+    <div class="header-top">
+      <h1 class="header-title">WhatsApp Outreach</h1>
+      <div class="header-actions">
+        <button class="btn-icon" id="btn-export" title="Export CSV">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="leads">Leads</button>
+      <button class="tab" data-tab="compose">Compose</button>
+      <button class="tab" data-tab="templates">Templates</button>
+    </div>
+  </div>
+  
+  <div class="content">
+    
+    <!-- Leads Tab -->
+    <div class="tab-panel active" id="panel-leads">
+      
+      <div class="import-card" id="import-card">
+        <div class="import-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <h2 class="import-title">Import Leads</h2>
+        <p class="import-subtitle">Upload CSV dari Maps Lead Scraper</p>
+        <button class="btn-primary" id="btn-import">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Pilih File CSV
+        </button>
+        <input type="file" id="csv-input" accept=".csv,.txt" style="display:none">
+      </div>
+      
+      <div class="stats-row" id="stats-row" style="display:none">
+        <div class="stat-item">
+          <div class="stat-number" id="stat-total">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number orange" id="stat-pending">0</div>
+          <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number green" id="stat-sent">0</div>
+          <div class="stat-label">Terkirim</div>
+        </div>
+      </div>
+      
+      <div id="lead-list">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div>Belum ada leads. Import CSV untuk mulai.</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Compose Tab -->
+    <div class="tab-panel" id="panel-compose">
+      
+      <div class="form-group">
+        <label class="form-label">Pilih Lead</label>
+        <select class="form-select" id="compose-lead">
+          <option value="">Pilih lead untuk compose pesan</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Template</label>
+        <select class="form-select" id="compose-template"></select>
+      </div>
+      
+      <div class="preview-card visible" id="compose-preview">
+        <div class="preview-label">Preview Pesan</div>
+        <div class="preview-text" id="compose-message">Pilih lead dan template untuk preview</div>
+      </div>
+      
+      <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btn-send" style="flex:1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          Kirim via WhatsApp
+        </button>
+        <button class="btn-sm btn-green" id="btn-send-next" style="width:48px; height:48px; display:flex; align-items:center; justify-content:center;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        </button>
+      </div>
+      
+      <div style="margin-top:12px">
+        <button class="btn-sm btn-orange" id="btn-mark-sent" style="width:100%; padding:10px; font-size:14px;">
+          Tandai Sudah Terkirim
+        </button>
+      </div>
+    </div>
+    
+    <!-- Templates Tab -->
+    <div class="tab-panel" id="panel-templates">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 class="section-title" style="font-size:17px; font-weight:700;">Templates</h2>
+        <button class="btn-sm btn-outline" id="btn-add-template">+ Tambah</button>
+      </div>
+      
+      <div id="template-list"></div>
+      
+      <div style="margin-top:16px;">
+        <button class="btn-sm btn-outline" id="btn-save-templates" style="width:100%; padding:10px; font-size:14px;">
+          Simpan Semua Template
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+  
+  <script src="sidepanel.js"></script>
+</body>
+</html>
