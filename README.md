@@ -1,6 +1,6 @@
 # WhatsApp Outreach Chrome Extension
 
-Import leads from CSV and send personalized WhatsApp messages with tracking.
+WhatsApp outreach Chrome Extension — import leads from CSV and send personalized WhatsApp messages with tracking.
 
 ## Features
 
